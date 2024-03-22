@@ -1,0 +1,8 @@
+it('should redirect to the logout URL on logout', () => {
+  const mockLocation = { href: '' }; // Mock location object
+  spyOn(window, 'location', 'get').and.returnValue(mockLocation); // Spy on window.location.href
+
+  component.logOut();
+
+  expect(mockLocation.href).toEqual(environment.rlHome); // Verify redirection URL
+});

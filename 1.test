@@ -1,0 +1,166 @@
+import { TestBed, ComponentFixture, async, tick, fakeAsync } from '@angular/core/testing';
+import { InternalComponent } from './internal.component';
+import { DataService } from '../Service/data-services';
+import { InternalDataTransferService } from '../Service/transfer-services';
+import { AppInsightsService } from '../Service/app-insights.service';
+import { HomeService } from '../home/home.services';
+import { MatDialog } from '@angular/material';
+import { AlertController, ModalController } from '@ionic/angular';
+import { CookieService } from 'ngx-cookie-service';
+import { DatePipe } from '@angular/common';
+import { of, throwError } from 'rxjs';
+
+describe('InternalComponent', () => {
+  let component: InternalComponent;
+  let fixture: ComponentFixture<InternalComponent>;
+  let dataServiceSpy: jasmine.SpyObj<DataService>;
+  let internalTransferServiceSpy: jasmine.SpyObj<InternalDataTransferService>;
+  let appInsightsServiceSpy: jasmine.SpyObj<AppInsightsService>;
+  let homeServiceSpy: jasmine.SpyObj<HomeService>;
+  let dialogSpy: jasmine.SpyObj<MatDialog>;
+  let alertControllerSpy: jasmine.SpyObj<AlertController>;
+  let modalControllerSpy: jasmine.SpyObj<ModalController>;
+  let cookieServiceSpy: jasmine.SpyObj<CookieService>;
+  let datePipeSpy: jasmine.SpyObj<DatePipe>;
+
+  beforeEach(async(() => {
+    const dataService = jasmine.createSpyObj('DataService', ['getSuppliersForDropdown', 'authManualInvOps', 'getInternalData', 'getInternalVendorLineItems', 'getInternalPaymentItems', 'getPaymentGroup']);
+    const internalTransferService = jasmine.createSpyObj('InternalDataTransferService', ['setInternal', 'setInternalData']);
+    const appInsightsService = jasmine.createSpyObj('AppInsightsService', ['LogPageView', 'logEvent']);
+    const homeService = jasmine.createSpyObj('HomeService', ['getInternalUserAuthenticated']);
+    const dialog = jasmine.createSpyObj('MatDialog', ['open']);
+    const alertController = jasmine.createSpyObj('AlertController', ['create']);
+    const modalController = jasmine.createSpyObj('ModalController', ['create']);
+    const cookieService = jasmine.createSpyObj('CookieService', ['get']);
+    const datePipe = jasmine.createSpyObj('DatePipe', ['transform']);
+
+    TestBed.configureTestingModule({
+      declarations: [InternalComponent],
+      providers: [
+        { provide: DataService, useValue: dataService },
+        { provide: InternalDataTransferService, useValue: internalTransferService },
+        { provide: AppInsightsService, useValue: appInsightsService },
+        { provide: HomeService, useValue: homeService },
+        { provide: MatDialog, useValue: dialog },
+        { provide: AlertController, useValue: alertController },
+        { provide: ModalController, useValue: modalController },
+        { provide: CookieService, useValue: cookieService },
+        { provide: DatePipe, useValue: datePipe }
+      ]
+    }).compileComponents();
+
+    dataServiceSpy = TestBed.inject(DataService) as jasmine.SpyObj<DataService>;
+    internalTransferServiceSpy = TestBed.inject(InternalDataTransferService) as jasmine.SpyObj<InternalDataTransferService>;
+    appInsightsServiceSpy = TestBed.inject(AppInsightsService) as jasmine.SpyObj<AppInsightsService>;
+    homeServiceSpy = TestBed.inject(HomeService) as jasmine.SpyObj<HomeService>;
+    dialogSpy = TestBed.inject(MatDialog) as jasmine.SpyObj<MatDialog>;
+    alertControllerSpy = TestBed.inject(AlertController) as jasmine.SpyObj<AlertController>;
+    modalControllerSpy = TestBed.inject(ModalController) as jasmine.SpyObj<ModalController>;
+    cookieServiceSpy = TestBed.inject(CookieService) as jasmine.SpyObj<CookieService>;
+    datePipeSpy = TestBed.inject(DatePipe) as jasmine.SpyObj<DatePipe>;
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(InternalComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('should call getSuppliersForDropdown and set suppliers dropdown list on initialization', () => {
+    const mockResponse = [{ supplierID: 1, supplierName: 'Supplier 1' }];
+    dataServiceSpy.getSuppliersForDropdown.and.returnValue(of(mockResponse));
+    component.countryCode = 'US';
+
+    component.ngOnInit();
+
+    expect(dataServiceSpy.getSuppliersForDropdown).toHaveBeenCalledWith('US', jasmine.any(String));
+    expect(component.dropdownList).toEqual(mockResponse);
+    expect(component.selectedItems).toEqual([mockResponse[0]]);
+    expect(component.showLoadingIndicator).toBeFalse();
+  });
+
+  it('should handle error while fetching suppliers dropdown list', () => {
+    const errorMessage = 'Error in calling the service';
+    dataServiceSpy.getSuppliersForDropdown.and.returnValue(throwError(errorMessage));
+    component.countryCode = 'US';
+
+    component.ngOnInit();
+
+    expect(dataServiceSpy.getSuppliersForDropdown).toHaveBeenCalledWith('US', jasmine.any(String));
+    expect(component.errorFlag).toBeTrue();
+    expect(component.errorMsg).toEqual(errorMessage);
+    expect(component.showLoadingIndicator).toBeFalse();
+  });
+
+  it('should call getInternalUserAuthenticated and set jwtToken on initialization', () => {
+    const mockResponse = { token: 'jwtToken' };
+    homeServiceSpy.getInternalUserAuthenticated.and.returnValue(of(mockResponse));
+
+    component.ngOnInit();
+
+    expect(homeServiceSpy.getInternalUserAuthenticated).toHaveBeenCalled();
+    expect(homeServiceSpy.jwtToken).toEqual(mockResponse.token);
+  });
+
+  it('should open PLI form when getPliForm is called', async () => {
+    const modalSpy = jasmine.createSpyObj('modal', ['present']);
+    modalControllerSpy.create.and.returnValue(Promise.resolve(modalSpy));
+
+    component.getPliForm();
+
+    await fixture.whenStable();
+
+    expect(modalControllerSpy.create).toHaveBeenCalled();
+    expect(modalSpy.present).toHaveBeenCalled();
+  });
+
+  it('should open invoice creation form when getInvoiceForm is called', async () => {
+    const modalSpy = jasmine.createSpyObj('modal', ['present']);
+    modalControllerSpy.create.and.returnValue(Promise.resolve(modalSpy));
+
+    component.getInvoiceForm();
+
+    await fixture.whenStable();
+
+    expect(modalControllerSpy.create).toHaveBeenCalled();
+    expect(modalSpy.present).toHaveBeenCalled();
+  });
+
+  it('should handle error while opening PLI form', async () => {
+    modalControllerSpy.create.and.returnValue(Promise.reject('Error'));
+
+    component.getPliForm();
+
+    await fixture.whenStable();
+
+    expect(modalControllerSpy.create).toHaveBeenCalled();
+  });
+
+  it('should handle error while opening invoice creation form', async () => {
+    modalControllerSpy.create.and.returnValue(Promise.reject('Error'));
+
+    component.getInvoiceForm();
+
+    await fixture.whenStable();
+
+    expect(modalControllerSpy.create).toHaveBeenCalled();
+  });
+
+  it('should handle close event of risk profile', () => {
+    component.onRPClose(true);
+
+    expect(component.riskProfile).toBeTrue();
+  });
+
+  it('should handle close event of pay auth', () => {
+    component.onClose(true);
+
+    expect(component.payAuthVisible).toBeTrue();
+  });
+
+  // Add more test cases to cover other methods, input/output properties, and behaviors
+});
